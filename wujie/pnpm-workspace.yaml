@@ -1,0 +1,6 @@
+packages:
+  # 指定根目录直接子目录中的包
+  - 'main'
+  # packages/ 直接子目录中的所有包
+  - 'subs/*'
+  - 'common'
