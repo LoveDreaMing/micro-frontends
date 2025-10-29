@@ -8,4 +8,7 @@ declare interface Window {
   $wujie?: any;
   __WUJIE_EVENT__?: any;
   __POWERED_BY_WUJIE__?: boolean;
+  a: string;
+  b: string;
+  _: any;
 }

@@ -26,7 +26,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHashHistory('/sub-vue'),
+  history: createWebHistory('/sub-vue'),
   routes
 });
 

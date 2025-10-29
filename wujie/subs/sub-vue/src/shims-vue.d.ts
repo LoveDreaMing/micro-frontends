@@ -10,4 +10,7 @@ declare interface Window {
   __UNBOUND_APP__?: any;
   __WUJIE_MOUNT?: () => void;
   __WUJIE_UNMOUNT?: () => void;
+  a: string;
+  b: string;
+  _: any;
 }

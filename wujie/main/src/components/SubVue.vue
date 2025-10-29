@@ -9,6 +9,14 @@
     :afterMount="afterMount"
     :beforeUnmount="beforeUnmount"
     :afterUnmount="afterUnmount"
+    :plugins="[
+      {
+        jsExcludes: [
+          'https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js'
+        ],
+        jsBeforeLoaders: [{ content: 'window._ = window.parent._' }]
+      }
+    ]"
   />
 </template>
 
@@ -28,6 +36,14 @@ const beforeMount = () => {
 };
 const afterMount = () => {
   console.log('sub-vue afterMount');
+  console.log(
+    'vue子应用全局变量',
+    (
+      window.document.querySelector(
+        "iframe[name='sub-vue']"
+      ) as HTMLIFrameElement
+    )?.contentWindow?.b
+  );
 };
 const beforeUnmount = () => {
   console.log('sub-vue beforeUnmount');
