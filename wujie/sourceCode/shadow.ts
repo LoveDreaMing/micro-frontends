@@ -1,383 +1,366 @@
 import {
-  WUJIE_APP_ID,
-  WUJIE_IFRAME_CLASS,
-  WUJIE_SHADE_STYLE,
-  CONTAINER_POSITION_DATA_FLAG,
-  CONTAINER_OVERFLOW_DATA_FLAG,
-  LOADING_DATA_FLAG,
-  WUJIE_LOADING_STYLE,
-  WUJIE_LOADING_SVG,
-} from "./constant";
-import {
-  getWujieById,
-  rawAppendChild,
-  rawElementAppendChild,
-  rawElementRemoveChild,
-  relativeElementTagAttrMap,
-} from "./common";
-import { getExternalStyleSheets } from "./entry";
-import Wujie from "./sandbox";
-import { patchElementEffect } from "./iframe";
-import { patchRenderEffect } from "./effect";
-import { getCssLoader, getPresetLoaders } from "./plugin";
-import { getAbsolutePath, getContainer, getCurUrl, setAttrsToElement } from "./utils";
+  WUJIE_APP_ID, // 子应用 id 的属性名
+  WUJIE_IFRAME_CLASS,  // 子应用 iframe 的默认 class
+  WUJIE_SHADE_STYLE,  // shadow 遮罩的默认样式
+  CONTAINER_POSITION_DATA_FLAG,  // 容器原始 position 样式的标记
+  CONTAINER_OVERFLOW_DATA_FLAG,  // 容器原始 overflow 样式的标记
+  LOADING_DATA_FLAG,  // loading 元素标记
+  WUJIE_LOADING_STYLE,  // loading 容器样式
+  WUJIE_LOADING_SVG,  // 默认 loading svg
+} from "./constant";  // 引入常量
 
-const cssSelectorMap = {
-  ":root": ":host",
-};
+import {
+  getWujieById,  // 根据 id 获取 sandbox 实例
+  rawAppendChild,  // 原生 appendChild
+  rawElementAppendChild,  // 原生元素 appendChild
+  rawElementRemoveChild,  // 原生元素 removeChild
+  relativeElementTagAttrMap,  // 标签对应需要修正的相对路径属性映射
+} from "./common";  // 公共函数
+
+import { getExternalStyleSheets } from "./entry";  // 获取外部样式表
+import Wujie from "./sandbox";  // Sandbox 类型
+import { patchElementEffect } from "./iframe";  // 元素 effect patch
+import { patchRenderEffect } from "./effect";  // 渲染 effect patch
+import { getCssLoader, getPresetLoaders } from "./plugin";  // css 插件 loader
+import { getAbsolutePath, getContainer, getCurUrl, setAttrsToElement } from "./utils";  // 工具函数
+
+const cssSelectorMap = { ":root": ":host" };  // root css 转换为 host
 
 declare global {
-  interface ShadowRoot {
-    head: HTMLHeadElement;
-    body: HTMLBodyElement;
+  interface ShadowRoot {  // 扩展 ShadowRoot 类型
+    head: HTMLHeadElement;  // ShadowRoot head
+    body: HTMLBodyElement;  // ShadowRoot body
   }
 }
 
 /**
  * 定义 wujie webComponent，将shadow包裹并获得dom装载和卸载的生命周期
  */
-export function defineWujieWebComponent() {
-  const customElements = window.customElements;
-  if (customElements && !customElements?.get("wujie-app")) {
-    class WujieApp extends HTMLElement {
-      connectedCallback(): void {
-        if (this.shadowRoot) return;
-        const shadowRoot = this.attachShadow({ mode: "open" });
-        const sandbox = getWujieById(this.getAttribute(WUJIE_APP_ID));
-        patchElementEffect(shadowRoot, sandbox.iframe.contentWindow);
-        sandbox.shadowRoot = shadowRoot;
+export function defineWujieWebComponent() {  // 注册 wujie-app 自定义元素
+  const customElements = window.customElements;  // 获取 customElements
+  if (customElements && !customElements?.get("wujie-app")) {  // 未注册则定义
+    class WujieApp extends HTMLElement {  // 自定义元素类
+      connectedCallback(): void {  // 挂载回调
+        if (this.shadowRoot) return;  // 已挂载直接返回
+        const shadowRoot = this.attachShadow({ mode: "open" });  // 创建 shadowRoot
+        const sandbox = getWujieById(this.getAttribute(WUJIE_APP_ID));  // 获取 sandbox
+        patchElementEffect(shadowRoot, sandbox.iframe.contentWindow);  // patch 元素 effect
+        sandbox.shadowRoot = shadowRoot;  // 关联 sandbox
       }
 
-      disconnectedCallback(): void {
-        const sandbox = getWujieById(this.getAttribute(WUJIE_APP_ID));
-        sandbox?.unmount();
+      disconnectedCallback(): void {  // 卸载回调
+        const sandbox = getWujieById(this.getAttribute(WUJIE_APP_ID));  // 获取 sandbox
+        sandbox?.unmount();  // 卸载 sandbox
       }
     }
-    customElements?.define("wujie-app", WujieApp);
+    customElements?.define("wujie-app", WujieApp);  // 定义 wujie-app 元素
   }
 }
 
-export function createWujieWebComponent(id: string): HTMLElement {
-  const contentElement = window.document.createElement("wujie-app");
-  contentElement.setAttribute(WUJIE_APP_ID, id);
-  contentElement.classList.add(WUJIE_IFRAME_CLASS);
-  return contentElement;
+export function createWujieWebComponent(id: string): HTMLElement {  // 创建 wujie-app 元素
+  const contentElement = window.document.createElement("wujie-app");  // 创建元素
+  contentElement.setAttribute(WUJIE_APP_ID, id);  // 设置 id
+  contentElement.classList.add(WUJIE_IFRAME_CLASS);  // 添加默认 class
+  return contentElement;  // 返回元素
 }
 
 /**
  * 将准备好的内容插入容器
  */
-export function renderElementToContainer(
-  element: Element | ChildNode,
-  selectorOrElement: string | HTMLElement
+export function renderElementToContainer(  // 渲染元素到容器
+  element: Element | ChildNode,  // 待插入元素
+  selectorOrElement: string | HTMLElement  // 容器 selector 或元素
 ): HTMLElement {
-  const container = getContainer(selectorOrElement);
-  if (container && !container.contains(element)) {
-    // 有 loading 无需清理，已经清理过了
-    if (!container.querySelector(`div[${LOADING_DATA_FLAG}]`)) {
-      // 清除内容
-      clearChild(container);
+  const container = getContainer(selectorOrElement);  // 获取容器
+  if (container && !container.contains(element)) {  // 防止重复插入
+    if (!container.querySelector(`div[${LOADING_DATA_FLAG}]`)) {  // 有 loading 不清理
+      clearChild(container);  // 清空容器
     }
-    // 插入元素
-    if (element) {
-      rawElementAppendChild.call(container, element);
+    if (element) {  // 插入元素
+      rawElementAppendChild.call(container, element);  // 原生 appendChild
     }
   }
-  return container;
+  return container;  // 返回容器
 }
 
 /**
  * 将降级的iframe挂在到容器上并进行初始化
  */
-export function initRenderIframeAndContainer(
-  id: string,
-  parent: string | HTMLElement,
-  degradeAttrs: { [key: string]: any } = {}
+export function initRenderIframeAndContainer(  // 初始化 iframe 和容器
+  id: string,  // sandbox id
+  parent: string | HTMLElement,  // 容器
+  degradeAttrs: { [key: string]: any } = {}  // iframe 降级属性
 ): { iframe: HTMLIFrameElement; container: HTMLElement } {
-  const iframe = createIframeContainer(id, degradeAttrs);
-  const container = renderElementToContainer(iframe, parent);
-  const contentDocument = iframe.contentWindow.document;
-  contentDocument.open();
-  contentDocument.write("<!DOCTYPE html><html><head></head><body></body></html>");
-  contentDocument.close();
-  return { iframe, container };
+  const iframe = createIframeContainer(id, degradeAttrs);  // 创建 iframe
+  const container = renderElementToContainer(iframe, parent);  // 渲染 iframe
+  const contentDocument = iframe.contentWindow.document;  // 获取 iframe document
+  contentDocument.open();  // 打开 document
+  contentDocument.write("<!DOCTYPE html><html><head></head><body></body></html>");  // 初始化内容
+  contentDocument.close();  // 关闭 document
+  return { iframe, container };  // 返回 iframe 和容器
 }
 
 /**
  * 处理css-before-loader 以及 css-after-loader
  */
-async function processCssLoaderForTemplate(sandbox: Wujie, html: HTMLHtmlElement): Promise<HTMLHtmlElement> {
-  const document = sandbox.iframe.contentDocument;
-  const { plugins, replace, proxyLocation } = sandbox;
-  const cssLoader = getCssLoader({ plugins, replace });
-  const cssBeforeLoaders = getPresetLoaders("cssBeforeLoaders", plugins);
-  const cssAfterLoaders = getPresetLoaders("cssAfterLoaders", plugins);
-  const curUrl = getCurUrl(proxyLocation);
+async function processCssLoaderForTemplate(sandbox: Wujie, html: HTMLHtmlElement): Promise<HTMLHtmlElement> {  // 执行 CSS 插件 loader
+  const document = sandbox.iframe.contentDocument;  // iframe document
+  const { plugins, replace, proxyLocation } = sandbox;  // 获取插件配置
+  const cssLoader = getCssLoader({ plugins, replace });  // 获取 css loader
+  const cssBeforeLoaders = getPresetLoaders("cssBeforeLoaders", plugins);  // 前置 css loader
+  const cssAfterLoaders = getPresetLoaders("cssAfterLoaders", plugins);  // 后置 css loader
+  const curUrl = getCurUrl(proxyLocation);  // 当前 url
 
-  return await Promise.all([
+  return await Promise.all([  // 执行前置和后置 loader
     Promise.all(
       getExternalStyleSheets(cssBeforeLoaders, sandbox.fetch, sandbox.lifecycles.loadError).map(
-        ({ src, contentPromise }) => contentPromise.then((content) => ({ src, content }))
+        ({ src, contentPromise }) => contentPromise.then((content) => ({ src, content }))  // 获取前置样式内容
       )
-    ).then((contentList) => {
-      contentList.forEach(({ src, content }) => {
-        if (!content) return;
-        const styleElement = document.createElement("style");
-        styleElement.setAttribute("type", "text/css");
-        styleElement.appendChild(document.createTextNode(content ? cssLoader(content, src, curUrl) : content));
-        const head = html.querySelector("head");
-        const body = html.querySelector("body");
-        html.insertBefore(styleElement, head || body || html.firstChild);
+    ).then((contentList) => {  // 插入 head 前置样式
+      contentList.forEach(({ src, content }) => {  // 遍历前置样式
+        if (!content) return;  // 无内容跳过
+        const styleElement = document.createElement("style");  // 创建 style
+        styleElement.setAttribute("type", "text/css");  // 设置类型
+        styleElement.appendChild(document.createTextNode(content ? cssLoader(content, src, curUrl) : content));  // 加载内容
+        const head = html.querySelector("head");  // 获取 head
+        const body = html.querySelector("body");  // 获取 body
+        html.insertBefore(styleElement, head || body || html.firstChild);  // 插入 head 或 body 前
       });
     }),
     Promise.all(
       getExternalStyleSheets(cssAfterLoaders, sandbox.fetch, sandbox.lifecycles.loadError).map(
-        ({ src, contentPromise }) => contentPromise.then((content) => ({ src, content }))
+        ({ src, contentPromise }) => contentPromise.then((content) => ({ src, content }))  // 获取后置样式内容
       )
-    ).then((contentList) => {
-      contentList.forEach(({ src, content }) => {
-        if (!content) return;
-        const styleElement = document.createElement("style");
-        styleElement.setAttribute("type", "text/css");
-        styleElement.appendChild(document.createTextNode(content ? cssLoader(content, src, curUrl) : content));
-        html.appendChild(styleElement);
+    ).then((contentList) => {  // 插入 body 后置样式
+      contentList.forEach(({ src, content }) => {  // 遍历后置样式
+        if (!content) return;  // 无内容跳过
+        const styleElement = document.createElement("style");  // 创建 style
+        styleElement.setAttribute("type", "text/css");  // 设置类型
+        styleElement.appendChild(document.createTextNode(content ? cssLoader(content, src, curUrl) : content));  // 加载内容
+        html.appendChild(styleElement);  // 插入 html
       });
     }),
   ]).then(
-    () => html,
-    () => html
+    () => html,  // 返回处理后的 html
+    () => html  // 异常仍返回 html
   );
 }
 
 // 替换html的head和body
-function replaceHeadAndBody(html: HTMLHtmlElement, head: HTMLHeadElement, body: HTMLBodyElement): HTMLHtmlElement {
-  const headElement = html.querySelector("head");
-  const bodyElement = html.querySelector("body");
-  if (headElement) {
-    while (headElement.firstChild) {
-      rawAppendChild.call(head, headElement.firstChild.cloneNode(true));
-      headElement.removeChild(headElement.firstChild);
+function replaceHeadAndBody(html: HTMLHtmlElement, head: HTMLHeadElement, body: HTMLBodyElement): HTMLHtmlElement {  // 替换 html 的 head 和 body
+  const headElement = html.querySelector("head");  // 获取原 head
+  const bodyElement = html.querySelector("body");  // 获取原 body
+  if (headElement) {  // 替换 head
+    while (headElement.firstChild) {  // 复制子节点
+      rawAppendChild.call(head, headElement.firstChild.cloneNode(true));  // 复制到 shadow head
+      headElement.removeChild(headElement.firstChild);  // 删除原节点
     }
-    headElement.parentNode.replaceChild(head, headElement);
+    headElement.parentNode.replaceChild(head, headElement);  // 替换 head
   }
-  if (bodyElement) {
-    while (bodyElement.firstChild) {
-      rawAppendChild.call(body, bodyElement.firstChild.cloneNode(true));
-      bodyElement.removeChild(bodyElement.firstChild);
+  if (bodyElement) {  // 替换 body
+    while (bodyElement.firstChild) {  // 复制子节点
+      rawAppendChild.call(body, bodyElement.firstChild.cloneNode(true));  // 复制到 shadow body
+      bodyElement.removeChild(bodyElement.firstChild);  // 删除原节点
     }
-    bodyElement.parentNode.replaceChild(body, bodyElement);
+    bodyElement.parentNode.replaceChild(body, bodyElement);  // 替换 body
   }
-  return html;
+  return html;  // 返回 html
 }
 
 /**
  * 将template渲染成html元素
  */
-function renderTemplateToHtml(iframeWindow: Window, template: string): HTMLHtmlElement {
-  const sandbox = iframeWindow.__WUJIE;
-  const { head, body, alive, execFlag } = sandbox;
-  const document = iframeWindow.document;
-  const parser = new DOMParser();
-  const parsedDocument = parser.parseFromString(template, "text/html");
-
-  // 无论 template 是否包含html，documentElement 必然是 HTMLHtmlElement
-  const parsedHtml = parsedDocument.documentElement as HTMLHtmlElement;
-  const sourceAttributes = parsedHtml.attributes;
-  let html = document.createElement("html");
-  html.innerHTML = template;
-  for (let i = 0; i < sourceAttributes.length; i++) {
-    html.setAttribute(sourceAttributes[i].name, sourceAttributes[i].value);
+function renderTemplateToHtml(iframeWindow: Window, template: string): HTMLHtmlElement {  // 将模板渲染成 HTMLHtmlElement
+  const sandbox = iframeWindow.__WUJIE;  // 获取 sandbox
+  const { head, body, alive, execFlag } = sandbox;  // 获取 sandbox 信息
+  const document = iframeWindow.document;  // iframe document
+  const parser = new DOMParser();  // DOMParser
+  const parsedDocument = parser.parseFromString(template, "text/html");  // 解析 template
+  const parsedHtml = parsedDocument.documentElement as HTMLHtmlElement;  // 获取 html 元素
+  const sourceAttributes = parsedHtml.attributes;  // html 属性
+  let html = document.createElement("html");  // 新建 html
+  html.innerHTML = template;  // 设置 innerHTML
+  for (let i = 0; i < sourceAttributes.length; i++) {  // 复制 html 属性
+    html.setAttribute(sourceAttributes[i].name, sourceAttributes[i].value);  // 复制属性
   }
-  // 组件多次渲染，head和body必须一直使用同一个来应对被缓存的场景
-  if (!alive && execFlag) {
-    html = replaceHeadAndBody(html, head, body);
-  } else {
-    sandbox.head = html.querySelector("head");
-    sandbox.body = html.querySelector("body");
+  if (!alive && execFlag) {  // 多次渲染替换 head body
+    html = replaceHeadAndBody(html, head, body);  // 替换 head 和 body
+  } else {  // 第一次渲染
+    sandbox.head = html.querySelector("head");  // 保存 head
+    sandbox.body = html.querySelector("body");  // 保存 body
   }
-  const ElementIterator = document.createTreeWalker(html, NodeFilter.SHOW_ELEMENT, null, false);
-  let nextElement = ElementIterator.currentNode as HTMLElement;
-  while (nextElement) {
-    patchElementEffect(nextElement, iframeWindow);
-    const relativeAttr = relativeElementTagAttrMap[nextElement.tagName];
-    const url = nextElement[relativeAttr];
-    if (relativeAttr) nextElement.setAttribute(relativeAttr, getAbsolutePath(url, nextElement.baseURI || ""));
-    nextElement = ElementIterator.nextNode() as HTMLElement;
+  const ElementIterator = document.createTreeWalker(html, NodeFilter.SHOW_ELEMENT, null, false);  // 遍历所有元素
+  let nextElement = ElementIterator.currentNode as HTMLElement;  // 当前元素
+  while (nextElement) {  // 遍历
+    patchElementEffect(nextElement, iframeWindow);  // patch effect
+    const relativeAttr = relativeElementTagAttrMap[nextElement.tagName];  // 获取相对路径属性
+    const url = nextElement[relativeAttr];  // 获取 url
+    if (relativeAttr) nextElement.setAttribute(relativeAttr, getAbsolutePath(url, nextElement.baseURI || ""));  // 转换为绝对路径
+    nextElement = ElementIterator.nextNode() as HTMLElement;  // 下一个元素
   }
-  if (!html.querySelector("head")) {
-    const head = document.createElement("head");
-    html.appendChild(head);
+  if (!html.querySelector("head")) {  // 补 head
+    const head = document.createElement("head");  // 新建 head
+    html.appendChild(head);  // 添加 head
   }
-  if (!html.querySelector("body")) {
-    const body = document.createElement("body");
-    html.appendChild(body);
+  if (!html.querySelector("body")) {  // 补 body
+    const body = document.createElement("body");  // 新建 body
+    html.appendChild(body);  // 添加 body
   }
-  return html;
+  return html;  // 返回 html
 }
 
 /**
  * 将template渲染到shadowRoot
  */
-export async function renderTemplateToShadowRoot(
-  shadowRoot: ShadowRoot,
-  iframeWindow: Window,
-  template: string
+export async function renderTemplateToShadowRoot(  // 渲染 template 到 shadowRoot
+  shadowRoot: ShadowRoot,  // shadowRoot
+  iframeWindow: Window,  // iframe window
+  template: string  // template
 ): Promise<void> {
-  const html = renderTemplateToHtml(iframeWindow, template);
-  // 处理 css-before-loader 和 css-after-loader
-  const processedHtml = await processCssLoaderForTemplate(iframeWindow.__WUJIE, html);
-  // change ownerDocument
-  shadowRoot.appendChild(processedHtml);
-  const shade = document.createElement("div");
-  shade.setAttribute("style", WUJIE_SHADE_STYLE);
-  processedHtml.insertBefore(shade, processedHtml.firstChild);
-  shadowRoot.head = shadowRoot.querySelector("head");
-  shadowRoot.body = shadowRoot.querySelector("body");
+  const html = renderTemplateToHtml(iframeWindow, template);  // 渲染 html
+  const processedHtml = await processCssLoaderForTemplate(iframeWindow.__WUJIE, html);  // 执行 css loader
+  shadowRoot.appendChild(processedHtml);  // 插入 shadowRoot
+  const shade = document.createElement("div");  // 遮罩层
+  shade.setAttribute("style", WUJIE_SHADE_STYLE);  // 设置样式
+  processedHtml.insertBefore(shade, processedHtml.firstChild);  // 插入遮罩
+  shadowRoot.head = shadowRoot.querySelector("head");  // 保存 head
+  shadowRoot.body = shadowRoot.querySelector("body");  // 保存 body
 
-  // 修复 html parentNode
-  Object.defineProperty(shadowRoot.firstChild, "parentNode", {
+  Object.defineProperty(shadowRoot.firstChild, "parentNode", {  // 修复 parentNode
     enumerable: true,
     configurable: true,
     get: () => iframeWindow.document,
   });
 
-  patchRenderEffect(shadowRoot, iframeWindow.__WUJIE.id, false);
+  patchRenderEffect(shadowRoot, iframeWindow.__WUJIE.id, false);  // patch 渲染 effect
 }
 
-export function createIframeContainer(id: string, degradeAttrs: { [key: string]: any } = {}): HTMLIFrameElement {
-  const iframe = document.createElement("iframe");
-  const defaultStyle = "height:100%;width:100%";
-  setAttrsToElement(iframe, {
+export function createIframeContainer(id: string, degradeAttrs: { [key: string]: any } = {}): HTMLIFrameElement {  // 创建 iframe
+  const iframe = document.createElement("iframe");  // 创建 iframe
+  const defaultStyle = "height:100%;width:100%";  // 默认样式
+  setAttrsToElement(iframe, {  // 设置属性
     ...degradeAttrs,
-    style: [defaultStyle, degradeAttrs.style].join(";"),
-    [WUJIE_APP_ID]: id,
+    style: [defaultStyle, degradeAttrs.style].join(";"),  // 合并样式
+    [WUJIE_APP_ID]: id,  // 设置 id
   });
-  return iframe;
+  return iframe;  // 返回 iframe
 }
 
 /**
  * 将template渲染到iframe
  */
-export async function renderTemplateToIframe(
-  renderDocument: Document,
-  iframeWindow: Window,
-  template: string
+export async function renderTemplateToIframe(  // 渲染 template 到 iframe
+  renderDocument: Document,  // 渲染 document
+  iframeWindow: Window,  // iframe window
+  template: string  // template
 ): Promise<void> {
-  // 插入template
-  const html = renderTemplateToHtml(iframeWindow, template);
-  // 处理 css-before-loader 和 css-after-loader
-  const processedHtml = await processCssLoaderForTemplate(iframeWindow.__WUJIE, html);
-  renderDocument.replaceChild(processedHtml, renderDocument.documentElement);
+  const html = renderTemplateToHtml(iframeWindow, template);  // 渲染 html
+  const processedHtml = await processCssLoaderForTemplate(iframeWindow.__WUJIE, html);  // css loader
+  renderDocument.replaceChild(processedHtml, renderDocument.documentElement);  // 替换 documentElement
 
-  // 修复 html parentNode
-  Object.defineProperty(renderDocument.documentElement, "parentNode", {
+  Object.defineProperty(renderDocument.documentElement, "parentNode", {  // 修复 parentNode
     enumerable: true,
     configurable: true,
     get: () => iframeWindow.document,
   });
 
-  patchRenderEffect(renderDocument, iframeWindow.__WUJIE.id, true);
+  patchRenderEffect(renderDocument, iframeWindow.__WUJIE.id, true);  // patch render effect
 }
 
 /**
  * 清除Element所有节点
  */
-export function clearChild(root: ShadowRoot | Node): void {
-  // 清除内容
-  while (root?.firstChild) {
-    rawElementRemoveChild.call(root, root.firstChild);
+export function clearChild(root: ShadowRoot | Node): void {  // 清空节点
+  while (root?.firstChild) {  // 遍历删除
+    rawElementRemoveChild.call(root, root.firstChild);  // 删除
   }
 }
 
 /**
  * 给容器添加loading
  */
-export function addLoading(el: string | HTMLElement, loading: HTMLElement): void {
-  const container = getContainer(el);
-  clearChild(container);
-  // 给容器设置一些样式，防止 loading 抖动
-  let containerStyles = null;
+export function addLoading(el: string | HTMLElement, loading: HTMLElement): void {  // 添加 loading
+  const container = getContainer(el);  // 获取容器
+  clearChild(container);  // 清空容器
+  let containerStyles = null;  // 样式缓存
   try {
-    containerStyles = window.getComputedStyle(container);
+    containerStyles = window.getComputedStyle(container);  // 获取样式
   } catch {
-    return;
+    return;  // 出错直接返回
   }
-  if (containerStyles.position === "static") {
-    container.setAttribute(CONTAINER_POSITION_DATA_FLAG, containerStyles.position);
+  if (containerStyles.position === "static") {  // 如果是 static
+    container.setAttribute(CONTAINER_POSITION_DATA_FLAG, containerStyles.position);  // 保存原始 position
     container.setAttribute(
       CONTAINER_OVERFLOW_DATA_FLAG,
       containerStyles.overflow === "visible" ? "" : containerStyles.overflow
-    );
-    container.style.setProperty("position", "relative");
-    container.style.setProperty("overflow", "hidden");
-  } else if (["relative", "sticky"].includes(containerStyles.position)) {
+    );  // 保存原始 overflow
+    container.style.setProperty("position", "relative");  // 设置 position
+    container.style.setProperty("overflow", "hidden");  // 设置 overflow
+  } else if (["relative", "sticky"].includes(containerStyles.position)) {  // 相对定位
     container.setAttribute(
       CONTAINER_OVERFLOW_DATA_FLAG,
       containerStyles.overflow === "visible" ? "" : containerStyles.overflow
-    );
-    container.style.setProperty("overflow", "hidden");
+    );  // 保存 overflow
+    container.style.setProperty("overflow", "hidden");  // 隐藏滚动
   }
-  const loadingContainer = document.createElement("div");
-  loadingContainer.setAttribute(LOADING_DATA_FLAG, "");
-  loadingContainer.setAttribute("style", WUJIE_LOADING_STYLE);
-  if (loading) loadingContainer.appendChild(loading);
-  else loadingContainer.innerHTML = WUJIE_LOADING_SVG;
-  container.appendChild(loadingContainer);
+  const loadingContainer = document.createElement("div");  // 创建 loading 容器
+  loadingContainer.setAttribute(LOADING_DATA_FLAG, "");  // 添加标记
+  loadingContainer.setAttribute("style", WUJIE_LOADING_STYLE);  // 设置样式
+  if (loading) loadingContainer.appendChild(loading);  // 添加自定义 loading
+  else loadingContainer.innerHTML = WUJIE_LOADING_SVG;  // 默认 svg loading
+  container.appendChild(loadingContainer);  // 插入容器
 }
+
 /**
  * 移除loading
  */
-export function removeLoading(el: HTMLElement): void {
-  // 去除容器设置的样式
-  const positionFlag = el.getAttribute(CONTAINER_POSITION_DATA_FLAG);
-  const overflowFlag = el.getAttribute(CONTAINER_OVERFLOW_DATA_FLAG);
-  if (positionFlag) el.style.removeProperty("position");
-  if (overflowFlag !== null) {
-    overflowFlag ? el.style.setProperty("overflow", overflowFlag) : el.style.removeProperty("overflow");
+export function removeLoading(el: HTMLElement): void {  // 移除 loading
+  const positionFlag = el.getAttribute(CONTAINER_POSITION_DATA_FLAG);  // 获取保存 position
+  const overflowFlag = el.getAttribute(CONTAINER_OVERFLOW_DATA_FLAG);  // 获取保存 overflow
+  if (positionFlag) el.style.removeProperty("position");  // 恢复 position
+  if (overflowFlag !== null) {  // 恢复 overflow
+    overflowFlag ? el.style.setProperty("overflow", overflowFlag) : el.style.removeProperty("overflow"); 
   }
-  el.removeAttribute(CONTAINER_POSITION_DATA_FLAG);
-  el.removeAttribute(CONTAINER_OVERFLOW_DATA_FLAG);
-  const loadingContainer = el.querySelector(`div[${LOADING_DATA_FLAG}]`);
-  loadingContainer && el.removeChild(loadingContainer);
+  el.removeAttribute(CONTAINER_POSITION_DATA_FLAG);  // 移除标记
+  el.removeAttribute(CONTAINER_OVERFLOW_DATA_FLAG);  // 移除标记
+  const loadingContainer = el.querySelector(`div[${LOADING_DATA_FLAG}]`);  // 查找 loading
+  loadingContainer && el.removeChild(loadingContainer);  // 移除 loading
 }
+
 /**
  * 获取修复好的样式元素
  * 主要是针对对root样式和font-face样式
  */
-export function getPatchStyleElements(rootStyleSheets: Array<CSSStyleSheet>): Array<HTMLStyleElement | null> {
-  const rootCssRules = [];
-  const fontCssRules = [];
-  const rootStyleReg = /:root/g;
+export function getPatchStyleElements(rootStyleSheets: Array<CSSStyleSheet>): Array<HTMLStyleElement | null> {  // 获取修复后的 style
+  const rootCssRules = [];  // :root css rules
+  const fontCssRules = [];  // font-face css rules
+  const rootStyleReg = /:root/g;  // 正则匹配 :root
 
-  // 找出root的cssRules
-  for (let i = 0; i < rootStyleSheets.length; i++) {
-    const cssRules = rootStyleSheets[i]?.cssRules ?? [];
-    for (let j = 0; j < cssRules.length; j++) {
-      const cssRuleText = cssRules[j].cssText;
-      // 如果是root的cssRule
-      if (rootStyleReg.test(cssRuleText)) {
-        rootCssRules.push(cssRuleText.replace(rootStyleReg, (match) => cssSelectorMap[match]));
+  for (let i = 0; i < rootStyleSheets.length; i++) {  // 遍历 styleSheets
+    const cssRules = rootStyleSheets[i]?.cssRules ?? [];  // 获取 cssRules
+    for (let j = 0; j < cssRules.length; j++) {  // 遍历规则
+      const cssRuleText = cssRules[j].cssText;  // 获取文本
+      if (rootStyleReg.test(cssRuleText)) {  // :root css
+        rootCssRules.push(cssRuleText.replace(rootStyleReg, (match) => cssSelectorMap[match]));  // 替换为 :host
       }
-      // 如果是font-face的cssRule
-      if (cssRules[j].type === CSSRule.FONT_FACE_RULE) {
-        fontCssRules.push(cssRuleText);
+      if (cssRules[j].type === CSSRule.FONT_FACE_RULE) {  // font-face css
+        fontCssRules.push(cssRuleText);  // 保存规则
       }
     }
   }
 
-  let rootStyleSheetElement = null;
-  let fontStyleSheetElement = null;
+  let rootStyleSheetElement = null;  // 创建 style 元素
+  let fontStyleSheetElement = null;  // 创建 style 元素
 
-  // 复制到host上
-  if (rootCssRules.length) {
-    rootStyleSheetElement = window.document.createElement("style");
-    rootStyleSheetElement.innerHTML = rootCssRules.join("");
+  if (rootCssRules.length) {  // 有 root css
+    rootStyleSheetElement = window.document.createElement("style");  // 创建 style
+    rootStyleSheetElement.innerHTML = rootCssRules.join("");  // 设置内容
   }
 
-  if (fontCssRules.length) {
-    fontStyleSheetElement = window.document.createElement("style");
-    fontStyleSheetElement.innerHTML = fontCssRules.join("");
+  if (fontCssRules.length) {  // 有 font-face
+    fontStyleSheetElement = window.document.createElement("style");  // 创建 style
+    fontStyleSheetElement.innerHTML = fontCssRules.join("");  // 设置内容
   }
 
-  return [rootStyleSheetElement, fontStyleSheetElement];
+  return [rootStyleSheetElement, fontStyleSheetElement];  // 返回 style 元素数组
 }
