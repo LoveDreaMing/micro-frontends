@@ -1,9 +1,9 @@
-import importHTML, { processCssLoader } from "./entry";
-import { StyleObject, ScriptAttributes } from "./template";
-import WuJie, { lifecycle } from "./sandbox";
-import { defineWujieWebComponent, addLoading } from "./shadow";
-import { processAppForHrefJump } from "./sync";
-import { getPlugins } from "./plugin";
+import importHTML, { processCssLoader } from "./entry"; // 导入解析 HTML / 外部资源的函数与处理 CSS loader 的方法
+import { StyleObject, ScriptAttributes } from "./template"; // 导入样式与脚本属性类型定义
+import WuJie, { lifecycle } from "./sandbox"; // 导入 WuJie 沙箱类与生命周期类型
+import { defineWujieWebComponent, addLoading } from "./shadow"; // 导入定义 webcomponent 与添加 loading 的方法
+import { processAppForHrefJump } from "./sync"; // 导入处理子应用内链接跳转同步的函数
+import { getPlugins } from "./plugin"; // 导入插件解析器（将插件配置转换成内部格式）
 import {
   wujieSupport,
   mergeOptions,
@@ -12,12 +12,12 @@ import {
   isMatchSyncQueryById,
   warn,
   stopMainAppRun,
-} from "./utils";
-import { getWujieById, getOptionsById, addSandboxCacheWithOptions } from "./common";
-import { EventBus } from "./event";
-import { WUJIE_TIPS_NOT_SUPPORTED } from "./constant";
+} from "./utils"; // 导入多个工具函数（支持检查、合并配置、类型判断、空闲回调、同步查询匹配、告警、中断主应用等）
+import { getWujieById, getOptionsById, addSandboxCacheWithOptions } from "./common"; // 导入沙箱/配置缓存相关的通用方法
+import { EventBus } from "./event"; // 导入事件总线类
+import { WUJIE_TIPS_NOT_SUPPORTED } from "./constant"; // 导入不支持时提示文本常量
 
-export const bus = new EventBus(Date.now().toString());
+export const bus = new EventBus(Date.now().toString()); // 创建并导出一个全局事件总线实例，id 使用当前时间戳字符串
 
 export interface ScriptObjectLoader {
   /** 脚本地址，内联为空 */
@@ -29,7 +29,7 @@ export interface ScriptObjectLoader {
   /** 脚本是否设置crossorigin */
   crossorigin?: boolean;
   /** 脚本crossorigin的类型 */
-  crossoriginType?: "anonymous" | "use-credentials" | "";
+  crossoriginType?: "anonymous" | "use-credentials" | ""; 
   /** 脚本原始属性 */
   attrs?: ScriptAttributes;
   /** 内联script的代码 */
@@ -85,9 +85,9 @@ type eventListenerHook = (
   type: string,
   handler: EventListenerOrEventListenerObject,
   options?: boolean | AddEventListenerOptions
-) => void;
+) => void; // 定义事件监听钩子类型（供插件使用以拦截 add/removeEventListener）
 
-export type loadErrorHandler = (url: string, e: Error) => any;
+export type loadErrorHandler = (url: string, e: Error) => any; // 加载错误回调类型（传入出错 url 与 Error）
 
 type baseOptions = {
   /** 唯一性用户必须保证 */
@@ -150,13 +150,13 @@ export type startOptions = baseOptions & {
   loading?: HTMLElement;
 };
 
-type optionProperty = "url" | "el";
+type optionProperty = "url" | "el"; // 用于后续类型运算（把 url/el 视作特殊属性）
 
 /**
  * 合并 preOptions 和 startOptions，并且将 url 和 el 变成可选
  */
 export type cacheOptions = Omit<preOptions & startOptions, optionProperty> &
-  Partial<Pick<startOptions, optionProperty>>;
+  Partial<Pick<startOptions, optionProperty>>; // 组合类型：供缓存使用的选项类型（url/el 可选）
 
 /**
  * 强制中断主应用运行
@@ -165,33 +165,33 @@ export type cacheOptions = Omit<preOptions & startOptions, optionProperty> &
  * 上述条件同时成立说明主应用代码在iframe的loading阶段混入进来了，必须中断执行
  */
 if (window.__WUJIE && !window.__POWERED_BY_WUJIE__) {
-  stopMainAppRun();
+  stopMainAppRun(); // 在子应用环境但未被正确初始化时阻止主应用继续执行（防止主应用脚本污染子应用）
 }
 
 // 处理子应用链接跳转
-processAppForHrefJump();
+processAppForHrefJump(); // 立即设置 href 跳转拦截/同步规则，保证之后的子应用链接也会被处理
 
 // 定义webComponent容器
-defineWujieWebComponent();
+defineWujieWebComponent(); // 注册自定义元素（<wujie-*>）供以 webcomponent 方式挂载子应用
 
 // 如果不支持则告警
-if (!wujieSupport) warn(WUJIE_TIPS_NOT_SUPPORTED);
+if (!wujieSupport) warn(WUJIE_TIPS_NOT_SUPPORTED); // 检查浏览器支持性，若不支持则打印提示
 
 /**
  * 缓存子应用配置
  */
 export function setupApp(options: cacheOptions): void {
-  if (options.name) addSandboxCacheWithOptions(options.name, options);
+  if (options.name) addSandboxCacheWithOptions(options.name, options); // 将配置缓存到内部 map，便于 later start/preload 使用
 }
 
 /**
  * 运行无界app
  */
 export async function startApp(startOptions: startOptions): Promise<Function | void> {
-  const sandbox = getWujieById(startOptions.name);
-  const cacheOptions = getOptionsById(startOptions.name);
+  const sandbox = getWujieById(startOptions.name); // 根据 name 尝试获取已存在的沙箱实例
+  const cacheOptions = getOptionsById(startOptions.name); // 获取之前缓存的 options（若有）
   // 合并缓存配置
-  const options = mergeOptions(startOptions, cacheOptions);
+  const options = mergeOptions(startOptions, cacheOptions); // 合并用户传入的 startOptions 与缓存配置（startOptions 优先）
   const {
     name,
     url,
@@ -212,58 +212,58 @@ export async function startApp(startOptions: startOptions): Promise<Function | v
     lifecycles,
     iframeAddEventListeners,
     iframeOnEvents,
-  } = options;
+  } = options; // 解构合并后的 options 便于后续使用
   // 已经初始化过的应用，快速渲染
   if (sandbox) {
-    sandbox.plugins = getPlugins(plugins);
-    sandbox.lifecycles = lifecycles;
-    const iframeWindow = sandbox.iframe.contentWindow;
+    sandbox.plugins = getPlugins(plugins); // 更新 sandbox 的插件实例（将插件配置解析为运行时格式）
+    sandbox.lifecycles = lifecycles; // 更新生命周期钩子到 sandbox
+    const iframeWindow = sandbox.iframe.contentWindow; // 取得沙箱 iframe 的 window 引用
     if (sandbox.preload) {
-      await sandbox.preload;
+      await sandbox.preload; // 若有预加载任务，等待其完成以保证资源准备完毕
     }
     if (alive) {
       // 保活
-      await sandbox.active({ url, sync, prefix, el, props, alive, fetch, replace });
+      await sandbox.active({ url, sync, prefix, el, props, alive, fetch, replace }); // 激活沙箱（恢复 DOM / 状态）
       // 预加载但是没有执行的情况
       if (!sandbox.execFlag) {
-        sandbox.lifecycles?.beforeLoad?.(sandbox.iframe.contentWindow);
+        sandbox.lifecycles?.beforeLoad?.(sandbox.iframe.contentWindow); // 在执行前触发生命周期 beforeLoad
         const { getExternalScripts } = await importHTML({
           url,
           html,
           opts: {
-            fetch: fetch || window.fetch,
-            plugins: sandbox.plugins,
-            loadError: sandbox.lifecycles.loadError,
+            fetch: fetch || window.fetch, // 使用用户自定义 fetch 或全局 fetch
+            plugins: sandbox.plugins, // 插件用于处理资源
+            loadError: sandbox.lifecycles.loadError, // 加载错误回调
             fiber,
           },
-        });
-        await sandbox.start(getExternalScripts);
+        }); // 重新解析 HTML 得到脚本加载器
+        await sandbox.start(getExternalScripts); // 开始执行脚本（真正 mount）
       }
-      sandbox.lifecycles?.activated?.(sandbox.iframe.contentWindow);
-      return () => sandbox.destroy();
+      sandbox.lifecycles?.activated?.(sandbox.iframe.contentWindow); // 激活完成后触发 activated 钩子
+      return () => sandbox.destroy(); // 返回一个销毁函数供调用者使用
     } else if (isFunction(iframeWindow.__WUJIE_MOUNT)) {
       /**
        * 子应用切换会触发webcomponent的disconnectedCallback调用sandbox.unmount进行实例销毁
        * 此处是防止没有销毁webcomponent时调用startApp的情况，需要手动调用unmount
        */
-      await sandbox.unmount();
-      await sandbox.active({ url, sync, prefix, el, props, alive, fetch, replace });
+      await sandbox.unmount(); // 若存在 mount 函数但未执行 unmount，先手动卸载
+      await sandbox.active({ url, sync, prefix, el, props, alive, fetch, replace }); // 激活 sandbox（将 iframe 插入到容器等）
       // 正常加载的情况，先注入css，最后才mount。重新激活也保持同样的时序
-      sandbox.rebuildStyleSheets();
+      sandbox.rebuildStyleSheets(); // 重新构建并注入样式表（保证样式正确）
       // 有渲染函数
-      sandbox.lifecycles?.beforeMount?.(sandbox.iframe.contentWindow);
-      iframeWindow.__WUJIE_MOUNT();
-      sandbox.lifecycles?.afterMount?.(sandbox.iframe.contentWindow);
-      sandbox.mountFlag = true;
-      return () => sandbox.destroy();
+      sandbox.lifecycles?.beforeMount?.(sandbox.iframe.contentWindow); // 触发 beforeMount 钩子
+      iframeWindow.__WUJIE_MOUNT(); // 调用子应用挂载入口
+      sandbox.lifecycles?.afterMount?.(sandbox.iframe.contentWindow); // 触发 afterMount 钩子
+      sandbox.mountFlag = true; // 标记为已挂载
+      return () => sandbox.destroy(); // 返回销毁函数
     } else {
       // 没有渲染函数
-      await sandbox.destroy();
+      await sandbox.destroy(); // 如果没有 mount 方法，销毁 sandbox（无法正常渲染）
     }
   }
 
   // 设置loading
-  addLoading(el, loading);
+  addLoading(el, loading); // 在容器里添加 loading DOM（若提供）
   const newSandbox = new WuJie({
     name,
     url,
@@ -275,23 +275,23 @@ export async function startApp(startOptions: startOptions): Promise<Function | v
     lifecycles,
     iframeAddEventListeners,
     iframeOnEvents,
-  });
-  newSandbox.lifecycles?.beforeLoad?.(newSandbox.iframe.contentWindow);
+  }); // 创建新的沙箱实例并传入配置
+  newSandbox.lifecycles?.beforeLoad?.(newSandbox.iframe.contentWindow); // 触发 beforeLoad 钩子（沙箱创建后）
   const { template, getExternalScripts, getExternalStyleSheets } = await importHTML({
     url,
     html,
     opts: {
-      fetch: fetch || window.fetch,
-      plugins: newSandbox.plugins,
-      loadError: newSandbox.lifecycles.loadError,
+      fetch: fetch || window.fetch, // 传入 fetch
+      plugins: newSandbox.plugins, // 传入插件
+      loadError: newSandbox.lifecycles.loadError, // 错误回调
       fiber,
     },
-  });
+  }); // 解析目标页面并得到 template 与外部资源加载器
 
-  const processedHtml = await processCssLoader(newSandbox, template, getExternalStyleSheets);
-  await newSandbox.active({ url, sync, prefix, template: processedHtml, el, props, alive, fetch, replace });
-  await newSandbox.start(getExternalScripts);
-  return () => newSandbox.destroy();
+  const processedHtml = await processCssLoader(newSandbox, template, getExternalStyleSheets); // 处理样式（走插件链或 loader）
+  await newSandbox.active({ url, sync, prefix, template: processedHtml, el, props, alive, fetch, replace }); // 激活沙箱（插入 iframe、应用模板、同步路由等）
+  await newSandbox.start(getExternalScripts); // 开始加载并执行外部脚本（完成 mount 流程）
+  return () => newSandbox.destroy(); // 返回销毁函数以便外部调用
 }
 
 /**
@@ -303,10 +303,10 @@ export function preloadApp(preOptions: preOptions): void {
      * 已经存在
      * url查询参数中有子应用的id，大概率是刷新浏览器或者分享url，此时需要直接打开子应用，无需预加载
      */
-    if (getWujieById(preOptions.name) || isMatchSyncQueryById(preOptions.name)) return;
-    const cacheOptions = getOptionsById(preOptions.name);
+    if (getWujieById(preOptions.name) || isMatchSyncQueryById(preOptions.name)) return; // 若实例存在或 url 已要求打开该子应用则跳过预加载
+    const cacheOptions = getOptionsById(preOptions.name); // 获取缓存配置
     // 合并缓存配置
-    const options = mergeOptions({ ...preOptions }, cacheOptions);
+    const options = mergeOptions({ ...preOptions }, cacheOptions); // 合并 preOptions 与缓存配置
     const {
       name,
       url,
@@ -325,7 +325,7 @@ export function preloadApp(preOptions: preOptions): void {
       lifecycles,
       iframeAddEventListeners,
       iframeOnEvents,
-    } = options;
+    } = options; // 解构必要选项
 
     const sandbox = new WuJie({
       name,
@@ -338,29 +338,29 @@ export function preloadApp(preOptions: preOptions): void {
       lifecycles,
       iframeAddEventListeners,
       iframeOnEvents,
-    });
-    if (sandbox.preload) return sandbox.preload;
+    }); // 创建沙箱用于预加载资源
+    if (sandbox.preload) return sandbox.preload; // 若已经存在预加载任务则直接返回该 promise（避免重复）
     const runPreload = async () => {
-      sandbox.lifecycles?.beforeLoad?.(sandbox.iframe.contentWindow);
+      sandbox.lifecycles?.beforeLoad?.(sandbox.iframe.contentWindow); // 触发 beforeLoad 钩子
       const { template, getExternalScripts, getExternalStyleSheets } = await importHTML({
         url,
         html,
         opts: {
-          fetch: fetch || window.fetch,
-          plugins: sandbox.plugins,
-          loadError: sandbox.lifecycles.loadError,
+          fetch: fetch || window.fetch, // 自定义或全局 fetch
+          plugins: sandbox.plugins, // 插件链
+          loadError: sandbox.lifecycles.loadError, // 加载错误处理器
           fiber,
         },
-      });
-      const processedHtml = await processCssLoader(sandbox, template, getExternalStyleSheets);
-      await sandbox.active({ url, props, prefix, alive, template: processedHtml, fetch, replace });
+      }); // 解析 HTML，获取资源加载器
+      const processedHtml = await processCssLoader(sandbox, template, getExternalStyleSheets); // 处理 css、返回处理后的 template
+      await sandbox.active({ url, props, prefix, alive, template: processedHtml, fetch, replace }); // 激活沙箱（但不一定执行脚本）
       if (exec) {
-        await sandbox.start(getExternalScripts);
+        await sandbox.start(getExternalScripts); // 若 exec 为 true，则执行脚本（完成预执行）
       } else {
-        await getExternalScripts();
+        await getExternalScripts(); // 否则只预加载外部脚本资源但不执行（获取脚本列表/缓存）
       }
     };
-    sandbox.preload = runPreload();
+    sandbox.preload = runPreload(); // 将预加载任务保存到 sandbox.preload，防止重复启动
   });
 }
 
@@ -368,8 +368,8 @@ export function preloadApp(preOptions: preOptions): void {
  * 销毁无界APP
  */
 export function destroyApp(id: string): void {
-  const sandbox = getWujieById(id);
+  const sandbox = getWujieById(id); // 根据 id 获取沙箱实例
   if (sandbox) {
-    sandbox.destroy();
+    sandbox.destroy(); // 如果存在则销毁（移除 iframe、清理事件、释放资源）
   }
 }
