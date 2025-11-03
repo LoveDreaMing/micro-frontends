@@ -36,13 +36,13 @@ const paths = [
     path: '/detail'
   },
   {
-    name: 'React',
+    name: '跳转React子应用',
     path: '/sub-react'
   }
 ];
 
 const handleChangeTab = (item: { name: string; path: string }) => {
-  if (item.name === 'React') {
+  if (item.path === '/sub-react') {
     // jump(item.path); // 方式一
     window.$wujie?.bus.$emit('jump', item.path); // 方式二
   } else {

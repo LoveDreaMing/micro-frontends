@@ -15,7 +15,9 @@ const App: React.FC = () => {
       <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
         <Link to="/">列表</Link>
         <Link to="/detail/1">详情</Link>
-        <div onClick={jumpToVue}>跳转到 sub-vue</div>
+        <div style={{ cursor: 'pointer' }} onClick={jumpToVue}>
+          跳转到Vue子应用
+        </div>
       </div>
 
       <Routes>
